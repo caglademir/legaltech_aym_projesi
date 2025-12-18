@@ -1,80 +1,87 @@
 import streamlit as st
-st.write("Sistem Başlatılıyor...")
+import os
 from main_engine import start_process, download_and_summarize
-from database import ozetlerde_ara
+from database import ozetlerde_ara, abone_ekle  # database.py'ye eklediğimiz fonksiyon
 from datetime import datetime
 from fpdf import FPDF
 
-import os
-import streamlit as st
-
-# Playwright tarayıcılarını sunucuya zorla kur
+# --- SİSTEM BAŞLATMA VE PLAYWRIGHT KURULUMU ---
 try:
     import playwright
 except ImportError:
     os.system("pip install playwright")
     os.system("playwright install chromium")
 
-# Eğer tarayıcı hatası verirse otomatik kurmaya çalışacak bir mekanizma
 if "playwright_installed" not in st.session_state:
     os.system("playwright install chromium")
     st.session_state["playwright_installed"] = True
 
 st.set_page_config(page_title="LegalTech AYM", layout="wide", page_icon="⚖️")
 
-# --- CSS: TÜM GÖRSEL DÜZENLEMELER ---
+# --- ABONELİK POP-UP FONKSİYONU ---
+@st.dialog("⚖️ Hukuki Bültene Abone Ol")
+def abone_ol_popup():
+    st.write("Her sabah yeni AYM kararlarından haberdar olmak için e-posta adresinizi bırakın. Analizler otomatik olarak e-postanıza gelsin.")
+    yeni_email = st.text_input("E-posta Adresiniz", placeholder="ornek@mail.com")
+    
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        if st.button("Kaydı Tamamla", type="primary"):
+            if "@" in yeni_email and "." in yeni_email:
+                if abone_ekle(yeni_email):
+                    st.success("Tebrikler! Aboneliğiniz başarıyla oluşturuldu.")
+                    st.balloons()
+                else:
+                    st.warning("Bu e-posta zaten kayıtlı.")
+            else:
+                st.error("Lütfen geçerli bir e-posta adresi girin.")
+    with col2:
+        if st.button("Kapat"):
+            st.rerun()
+
+# --- CSS GÜNCELLEMELERİ ---
 st.markdown("""
     <style>
-    /* Gazeteyi Tara Butonu (Kırmızı) ve Hizalama */
     div.stButton > button[kind="primary"] {
         background-color: #e63946 !important;
         color: white !important;
         font-weight: bold;
-        height: 3.1em;
-        width: 100%;
-        margin-top: 28px !important;
     }
-    /* Rapor İndir Butonu (Yeşil) */
-    div.stDownloadButton > button {
-        background-color: #2a9d8f !important;
+    /* Sidebar Abone Ol Butonu Stil */
+    [data-testid="stSidebar"] div.stButton > button {
+        background-color: #1d3557 !important;
         color: white !important;
-        width: 100%;
-    }
-    /* PDF Aç Butonu (Mavi) */
-    div.stLinkButton > a {
-        background-color: #457b9d !important;
-        color: white !important;
-        width: 100%;
-        text-align: center;
-        border-radius: 5px;
-        line-height: 2.5;
-        text-decoration: none;
-        display: block;
+        border-radius: 20px;
     }
     </style>
     """, unsafe_allow_html=True)
+
+# --- SIDEBAR: OTOMASYON BİLGİSİ VE ABONE OL ---
+with st.sidebar:
+    st.title("⚙️ Ayarlar & Takip")
+    st.info("🕒 Otomasyon: Her sabah 08:00'de Resmi Gazete taranır ve yeni karar varsa abonelere bildirilir.")
+    
+    if st.button("🔔 BÜLTENE ABONE OL"):
+        abone_ol_popup()
+    
+    st.markdown("---")
+    st.caption("LegalTech AYM v1.0")
 
 # --- PDF OLUŞTURMA FONKSİYONU ---
 def create_pdf(title, content):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", 'B', size=14)
-    # Başlığı temizle ve yaz
     safe_title = title.encode('latin-1', 'replace').decode('latin-1')
     pdf.cell(200, 10, txt="AYM KARAR ANALIZ RAPORU", ln=1, align='C')
     pdf.ln(10)
-    
     pdf.set_font("Arial", size=11)
-    # İçeriği temizle ve yaz
     safe_content = content.encode('latin-1', 'replace').decode('latin-1')
     pdf.multi_cell(0, 8, txt=safe_content)
-    
-    # HATA BURADAYDI: Çıktıyı alırken kontrol ekliyoruz
     pdf_output = pdf.output(dest='S')
-    if isinstance(pdf_output, str):
-        return pdf_output.encode('latin-1')
-    return bytes(pdf_output) # Eğer zaten byte ise doğrudan döndür
+    return bytes(pdf_output) if not isinstance(pdf_output, str) else pdf_output.encode('latin-1')
 
+# --- ANA SAYFA ---
 st.title("⚖️ AYM Karar Analiz Platformu")
 tab1, tab2 = st.tabs(["🔍 Günlük Tarama", "📚 Arşivde Arama"])
 
@@ -89,14 +96,12 @@ with tab1:
             tarih_secimi = st.date_input("Karar Tarihi", value=datetime.now())
             tarih_str = tarih_secimi.strftime("%Y%m%d")
         with t_col2:
+            st.write("") # Boşluk için
             ara_butonu = st.button("GAZETEYİ TARA", type="primary")
 
         if ara_butonu:
-            # --- PANELİ SIFIRLAMA MANTIĞI ---
-            if 'current_summary' in st.session_state:
-                del st.session_state['current_summary']
-            if 'secilen_karar' in st.session_state:
-                del st.session_state['secilen_karar']
+            if 'current_summary' in st.session_state: del st.session_state['current_summary']
+            if 'secilen_karar' in st.session_state: del st.session_state['secilen_karar']
             
             with st.spinner("Resmi Gazete taranıyor..."):
                 sonuclar = start_process(tarih_str)
@@ -134,23 +139,20 @@ with tab1:
 # --- TAB 2: ARŞİVDE ARAMA ---
 with tab2:
     st.subheader("🔎 Arşivlenmiş Analizler")
-    st.markdown("*Örn: 'Mülakat', 'İptal', 'Mali Denetim'*")
-    
     arama_col1, arama_col2 = st.columns([4, 1])
     with arama_col1:
         arama_sorgusu = st.text_input("Anahtar kelime...", placeholder="Aramak istediğiniz terimi yazın", label_visibility="collapsed")
     with arama_col2:
         arama_butonu_arsiv = st.button("ARA", use_container_width=True)
     
-    if arama_butonu_arsiv:
-        if arama_sorgusu:
-            with st.spinner(f"'{arama_sorgusu}' terimi arşivde taranıyor..."):
-                sonuclar = ozetlerde_ara(arama_sorgusu)
-                if sonuclar:
-                    st.success(f"Bulunan Kayıt Sayısı: {len(sonuclar)}")
-                    for tarih, baslik, ozet, url in sonuclar:
-                        with st.expander(f"📅 {tarih} - {baslik}"):
-                            st.markdown(ozet)
-                            st.link_button("Karar Metnine Git", url)
-                else:
-                    st.error(f"❌ Arşivde '{arama_sorgusu}' terimine dair bir analiz bulunamadı.")
+    if arama_butonu_arsiv and arama_sorgusu:
+        with st.spinner(f"'{arama_sorgusu}' terimi arşivde taranıyor..."):
+            sonuclar = ozetlerde_ara(arama_sorgusu)
+            if sonuclar:
+                st.success(f"Bulunan Kayıt Sayısı: {len(sonuclar)}")
+                for tarih, baslik, ozet, url in sonuclar:
+                    with st.expander(f"📅 {tarih} - {baslik}"):
+                        st.markdown(ozet)
+                        st.link_button("Karar Metnine Git", url)
+            else:
+                st.error(f"❌ Arşivde '{arama_sorgusu}' terimine dair bir analiz bulunamadı.")

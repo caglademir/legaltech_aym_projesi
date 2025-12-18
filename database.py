@@ -1,5 +1,20 @@
 import sqlite3
 
+import datetime
+
+def abone_ekle(eposta):
+    conn = sqlite3.connect("aym_arsiv.db")
+    cursor = conn.cursor()
+    try:
+        tarih = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        cursor.execute("INSERT INTO aboneler (eposta, kayit_tarihi, aktif_mi) VALUES (?, ?, 1)", (eposta, tarih))
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
+
 def db_kur():
     conn = sqlite3.connect("aym_arsiv.db")
     cursor = conn.cursor()

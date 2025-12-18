@@ -10,7 +10,7 @@ conn = sqlite3.connect("aym_arsiv.db")
 cursor = conn.cursor()
 try:
     cursor.execute("INSERT INTO aboneler (eposta, kayit_tarihi) VALUES (?, ?)", 
-                   ("KENDI_MAIL_ADRESIN@gmail.com", "2025-12-18"))
+                   ("aym.kararlari@gmail.com", "2025-12-18"))
     conn.commit()
     print("Abone listesi güncellendi.")
 except sqlite3.IntegrityError:
