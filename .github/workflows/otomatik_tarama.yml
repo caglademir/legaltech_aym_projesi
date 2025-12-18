@@ -1,0 +1,25 @@
+name: Daily AYM Scan
+on:
+  schedule:
+    - cron: '0 5 * * *' # Türkiye saatiyle 08:00 (5 UTC)
+  workflow_dispatch: # Manuel çalıştırmak için
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install chromium
+      - name: Run Scan
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          EMAIL_ADRESI: ${{ secrets.EMAIL_ADRESI }}
+          EMAIL_SIFRESI: ${{ secrets.EMAIL_SIFRESI }}
+        run: python -c "from main_engine import start_process; from datetime import datetime; start_process(datetime.now().strftime('%Y%m%d'))"
