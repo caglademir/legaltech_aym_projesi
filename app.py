@@ -5,6 +5,21 @@ from database import ozetlerde_ara
 from datetime import datetime
 from fpdf import FPDF
 
+import os
+import streamlit as st
+
+# Playwright tarayıcılarını sunucuya zorla kur
+try:
+    import playwright
+except ImportError:
+    os.system("pip install playwright")
+    os.system("playwright install chromium")
+
+# Eğer tarayıcı hatası verirse otomatik kurmaya çalışacak bir mekanizma
+if "playwright_installed" not in st.session_state:
+    os.system("playwright install chromium")
+    st.session_state["playwright_installed"] = True
+
 st.set_page_config(page_title="LegalTech AYM", layout="wide", page_icon="⚖️")
 
 # --- CSS: TÜM GÖRSEL DÜZENLEMELER ---

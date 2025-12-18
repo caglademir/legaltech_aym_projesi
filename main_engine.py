@@ -7,8 +7,7 @@ from playwright.sync_api import sync_playwright
 from openai import OpenAI
 from pdf2image import convert_from_path
 from database import db_kur, ozet_getir, ozet_kaydet
-# YENİ: Mail gönderim fonksiyonunu içe aktar
-from mail_manager import bulten_gonder
+from mail_manager import yeni_karar_duyurusu
 
 # Başlangıçta DB'yi hazırla
 db_kur()
@@ -20,23 +19,48 @@ client = OpenAI(api_key=OPENAI_API_KEY)
 def start_process(tarih_str):
     year, month = tarih_str[:4], tarih_str[4:6]
     url = f"https://www.resmigazete.gov.tr/eskiler/{year}/{month}/{tarih_str}.htm"
+    aym_links = []
     
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
-        page.goto(url, wait_until="networkidle")
-        page.wait_for_timeout(3000)
-        
-        aym_links = []
-        links = page.locator("a").all()
-        for link in links:
-            href, text = link.get_attribute("href") or "", link.inner_text().strip()
-            if "ANAYASA" in text.upper() and ".pdf" in href.lower():
-                clean_href = href.split('/')[-1]
-                full_url = f"https://www.resmigazete.gov.tr/eskiler/{year}/{month}/{clean_href}"
-                aym_links.append({"title": text, "url": full_url})
-        browser.close()
-        return aym_links
+    try:
+        with sync_playwright() as p:
+            # Buradaki try-except tarayıcı başlatma hatalarını yakalar
+            try:
+                browser = p.chromium.launch(headless=True)
+            except Exception:
+                # Eğer sunucuda tarayıcı yoksa anında kurmayı dener
+                os.system("playwright install chromium")
+                browser = p.chromium.launch(headless=True)
+
+            page = browser.new_page()
+            # Timeout süresini artırıyoruz ve hata oluşursa boş liste dönmesini sağlıyoruz
+            try:
+                page.goto(url, wait_until="networkidle", timeout=30000)
+                page.wait_for_timeout(2000)
+                
+                links = page.locator("a").all()
+                for link in links:
+                    href = link.get_attribute("href") or ""
+                    text = link.inner_text().strip()
+                    if "ANAYASA" in text.upper() and ".pdf" in href.lower():
+                        clean_href = href.split('/')[-1]
+                        full_url = f"https://www.resmigazete.gov.tr/eskiler/{year}/{month}/{clean_href}"
+                        aym_links.append({"title": text, "url": full_url})
+            except Exception as e:
+                print(f"Resmi Gazete sayfa hatası (Muhtemelen bugün gazete yok): {e}")
+            finally:
+                browser.close()
+    except Exception as e:
+        print(f"Playwright genel hatası: {e}")
+        return [] # Hata olsa bile uygulama çökmez, boş liste döner.
+
+    # Sadece link varsa mail gönder
+    if len(aym_links) > 0:
+        try:
+            yeni_karar_duyurusu(len(aym_links))
+        except:
+            pass
+            
+    return aym_links
 
 def download_and_summarize(karar_obj, tarih_str):
     # 1. VERİTABANI KONTROLÜ
@@ -69,8 +93,7 @@ def download_and_summarize(karar_obj, tarih_str):
             - SOMUT DÜZENLEME
             - HUKUKİ ÇATIŞMA
             - MAHKEMENİN GEREKÇELİ GÖRÜŞÜ
-            - SONUÇ VE PRATİK ETKİ
-            Lütfen karar tarihini tam olarak oku."""},
+            - SONUÇ VE PRATİK ETKİ"""},
             
             {"role": "user", "content": [
                 {"type": "text", "text": "Bu AYM kararını analiz et:"},
@@ -85,11 +108,4 @@ def download_and_summarize(karar_obj, tarih_str):
     # 5. KAYDET
     ozet_kaydet(tarih_str, karar_obj['title'], karar_obj['url'], ai_ozet)
     
-    # 6. YENİ: E-POSTA BİLTENİ GÖNDER
-    # Bu satır analiz biter bitmez mail_manager.py'yi tetikler
-    try:
-        bulten_gonder(karar_obj['title'], ai_ozet)
-    except Exception as e:
-        print(f"Bülten gönderilirken hata oluştu: {e}")
-
     return ai_ozet
