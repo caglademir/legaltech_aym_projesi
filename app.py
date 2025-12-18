@@ -1,4 +1,5 @@
 import streamlit as st
+st.write("Sistem Başlatılıyor...")
 from main_engine import start_process, download_and_summarize
 from database import ozetlerde_ara
 from datetime import datetime

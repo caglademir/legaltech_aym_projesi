@@ -7,6 +7,8 @@ from playwright.sync_api import sync_playwright
 from openai import OpenAI
 from pdf2image import convert_from_path
 from database import db_kur, ozet_getir, ozet_kaydet
+# YENİ: Mail gönderim fonksiyonunu içe aktar
+from mail_manager import bulten_gonder
 
 # Başlangıçta DB'yi hazırla
 db_kur()
@@ -50,41 +52,44 @@ def download_and_summarize(karar_obj, tarih_str):
         f.write(pdf_res.content)
     
     # 3. GÖRÜNTÜYE ÇEVİRME (OCR)
-    # 200 DPI hem netlik hem de güvenlik filtresini aşmak için idealdir
     images = convert_from_path(pdf_path, dpi=300) 
     buffered = io.BytesIO()
     images[0].save(buffered, format="JPEG")
     base64_image = base64.b64encode(buffered.getvalue()).decode('utf-8')
     
     # 4. ANALİZ TALEBİ
-    # Prompt'u "Akademik Analiz" formatına çevirdik
     completion = client.chat.completions.create(
         model="gpt-4o",
         messages=[
             {"role": "system", "content": """Sen kıdemli bir hukuk müşavirisin. 
             Görevini şu adımlarla icra et:
-            1. Önce kararın 'Hukuki Alanını' tespit et (Örn: Ceza Hukuku, İdare Hukuku, Siyasi Parti Denetimi, Kişisel Haklar vb.).
+            1. Önce kararın 'Hukuki Alanını' tespit et.
             2. Tespit ettiğin alana göre aşağıdaki detaylı şablonu doldur:
-
-            - KARARIN KİMLİĞİ: Esas/Karar No ve Tam Başlık.
-            - SOMUT DÜZENLEME: İptali istenen veya denetlenen tam madde/fıkra metni nedir? (Genel ifadelerden kaçın, nokta atışı maddeyi belirt).
-            - HUKUKİ ÇATIŞMA: Başvurucunun iddiası ile mevcut düzenleme neden çelişiyor? Hangi Anayasal hak tehlikede?
-            - MAHKEMENİN GEREKÇELİ GÖRÜŞÜ: Mahkeme kararını hangi temel ilkeye dayandırdı? (Örn: Yasama yetkisinin devredilemezliği, ölçülülük, mülkiyet hakkı vb.).
-            - SONUÇ VE PRATİK ETKİ: Bu karar yürürlüğe girdiğinde günlük hukuk pratiğinde ne değişecek? Avukatlar neye dikkat etmeli?
-
-            Önemli: Karar bir 'Siyasi Parti Mali Denetimi' ise formatını 'Usulsüzlük var mı?' ve 'Anayasa Mahkemesi Kararı' ekseninde otomatik uyarla.
-            Lütfen karar tarihini dökümanın en başında yer alan 'Karar Tarihi' kısmından tam olarak oku ve yanlış yazmadığından emin ol."""},
+            - KARARIN KİMLİĞİ
+            - SOMUT DÜZENLEME
+            - HUKUKİ ÇATIŞMA
+            - MAHKEMENİN GEREKÇELİ GÖRÜŞÜ
+            - SONUÇ VE PRATİK ETKİ
+            Lütfen karar tarihini tam olarak oku."""},
             
             {"role": "user", "content": [
-                {"type": "text", "text": "Bu AYM kararını, uzmanlık alanına göre detaylandırarak ve hiçbir somut bilgiyi (Madde no, sınav adı, iptal edilen ibare vb.) atlamadan analiz et:"},
+                {"type": "text", "text": "Bu AYM kararını analiz et:"},
                 {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{base64_image}"}}
             ]}
         ],
-        temperature=0.2 # Biraz daha stabil sonuçlar için
+        temperature=0.2
     )
     
     ai_ozet = completion.choices[0].message.content
     
-    # 5. KAYDET VE DÖNDÜR
+    # 5. KAYDET
     ozet_kaydet(tarih_str, karar_obj['title'], karar_obj['url'], ai_ozet)
+    
+    # 6. YENİ: E-POSTA BİLTENİ GÖNDER
+    # Bu satır analiz biter bitmez mail_manager.py'yi tetikler
+    try:
+        bulten_gonder(karar_obj['title'], ai_ozet)
+    except Exception as e:
+        print(f"Bülten gönderilirken hata oluştu: {e}")
+
     return ai_ozet

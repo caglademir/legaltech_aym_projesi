@@ -3,16 +3,18 @@ import sqlite3
 def db_kur():
     conn = sqlite3.connect("aym_arsiv.db")
     cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS kararlar (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            tarih TEXT,
-            baslik TEXT,
-            url TEXT UNIQUE,
-            ozet TEXT,
-            eklenme_tarihi TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
+    
+    # Kararlar tablosu
+    cursor.execute('''CREATE TABLE IF NOT EXISTS kararlar 
+                     (tarih TEXT, baslik TEXT, ozet TEXT, url TEXT)''')
+    
+    # EKSİK OLAN TABLO BURASI:
+    cursor.execute('''CREATE TABLE IF NOT EXISTS aboneler 
+                     (id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                      eposta TEXT UNIQUE, 
+                      kayit_tarihi TEXT, 
+                      aktif_mi INTEGER DEFAULT 1)''')
+    
     conn.commit()
     conn.close()
 
