@@ -1,0 +1,6 @@
+venv/
+.env
+aym_arsiv.db
+__pycache__/
+*.pdf
+.DS_Store
