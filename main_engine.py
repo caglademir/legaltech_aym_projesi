@@ -52,13 +52,6 @@ def start_process(tarih_str):
     except Exception as e:
         print(f"Playwright genel hatası: {e}")
         return [] # Hata olsa bile uygulama çökmez, boş liste döner.
-
-    # Sadece link varsa mail gönder
-    if len(aym_links) > 0:
-        try:
-            yeni_karar_duyurusu(len(aym_links))
-        except:
-            pass
             
     return aym_links
 

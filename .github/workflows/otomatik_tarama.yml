@@ -23,3 +23,9 @@ jobs:
           EMAIL_ADRESI: ${{ secrets.EMAIL_ADRESI }}
           EMAIL_SIFRESI: ${{ secrets.EMAIL_SIFRESI }}
         run: python -c "from main_engine import start_process; from datetime import datetime; start_process(datetime.now().strftime('%Y%m%d'))"
+      - name: Run Scan
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          EMAIL_ADRESI: ${{ secrets.EMAIL_ADRESI }}
+          EMAIL_SIFRESI: ${{ secrets.EMAIL_SIFRESI }}
+        run: python cron_job.py  # ARTIK BU DOSYAYI ÇALIŞTIRACAK
