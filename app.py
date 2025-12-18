@@ -43,13 +43,21 @@ def create_pdf(title, content):
     pdf = FPDF()
     pdf.add_page()
     pdf.set_font("Arial", 'B', size=14)
+    # Başlığı temizle ve yaz
     safe_title = title.encode('latin-1', 'replace').decode('latin-1')
     pdf.cell(200, 10, txt="AYM KARAR ANALIZ RAPORU", ln=1, align='C')
     pdf.ln(10)
+    
     pdf.set_font("Arial", size=11)
+    # İçeriği temizle ve yaz
     safe_content = content.encode('latin-1', 'replace').decode('latin-1')
     pdf.multi_cell(0, 8, txt=safe_content)
-    return pdf.output(dest='S').encode('latin-1')
+    
+    # HATA BURADAYDI: Çıktıyı alırken kontrol ekliyoruz
+    pdf_output = pdf.output(dest='S')
+    if isinstance(pdf_output, str):
+        return pdf_output.encode('latin-1')
+    return bytes(pdf_output) # Eğer zaten byte ise doğrudan döndür
 
 st.title("⚖️ AYM Karar Analiz Platformu")
 tab1, tab2 = st.tabs(["🔍 Günlük Tarama", "📚 Arşivde Arama"])
