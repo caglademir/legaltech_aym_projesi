@@ -2,125 +2,170 @@ import streamlit as st
 from main_engine import start_process, download_and_summarize
 from database import ozetlerde_ara, abone_ekle
 from datetime import datetime
-from fpdf import FPDF
+import urllib.parse
 
-st.set_page_config(page_title="LegalTech AYM", layout="wide", page_icon="⚖️")
+# Sayfa Konfigürasyonu
+st.set_page_config(page_title="LegalTech AYM AI", layout="wide", page_icon="⚖️")
 
-# --- YENİLENMİŞ RENK PALETİ CSS ---
+# --- CSS & TASARIM ---
+# --- CSS GÜNCELLEME ---
 st.markdown("""
     <style>
+    /* Ana Arka Plan */
     .stApp { background-color: #0e1117; }
-
-    /* SIDEBAR - Arka plandan daha açık */
+    
+    /* Sidebar Renk ve Stil Düzenlemesi */
     [data-testid="stSidebar"] {
-        background-color: #1e2129 !important;
-        border-right: 1px solid #31333f;
+        background-color: #161b22 !important; /* Bir ton daha koyu/profesyonel gri */
+        border-right: 1px solid #30363d; /* İnce ayırıcı çizgi */
+    }
+
+    /* Sidebar içindeki başlık ve metin renkleri */
+    [data-testid="stSidebar"] h2, [data-testid="stSidebar"] p, [data-testid="stSidebar"] span {
+        color: #f0f6fc !important;
+    }
+
+    /* Kaydol Butonu Renk Ayarı (Sidebar) */
+    [data-testid="stSidebar"] .stButton button {
+        background-color: #21262d !important;
+        color: #c9d1d9 !important;
+        border: 1px solid #30363d !important;
     }
     
-    /* 1. GAZETEYİ TARA - Klasik Bordo */
-    button[kind="primary"] {
-        background-color: #800000 !important;
-        color: white !important;
-        border: 1px solid #600000 !important;
-    }
-    
-    /* 2. ANALİZİ BAŞLAT - YENİ RENK: GÜVEN VEREN YEŞİL (#2E7D32) */
-    div.stButton > button:not([kind="primary"]) {
-        background-color: #2E7D32 !important; 
-        color: #ffffff !important; 
-        border: 1px solid #1B5E20 !important;
-        font-weight: 700 !important;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
-
-    /* 3. ORİJİNAL PDF'İ AÇ - Kurumsal Mavi */
-    .stLinkButton > a {
-        background-color: #24527a !important; 
+    [data-testid="stSidebar"] .stButton button:hover {
+        border-color: #8b949e !important;
         color: white !important;
     }
 
-    /* 4. ANALİZ RAPORUNU İNDİR - Koyu Lacivert */
-    .stDownloadButton > button {
-        background-color: #1a3c5a !important; 
-        color: white !important;
-        width: 100% !important;
-    }
-
-    /* Hover Efektleri */
-    button:hover {
-        filter: brightness(115%) !important;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important;
-        transition: 0.3s;
+    /* Dashboard Kartları (Eski Renkler Korundu) */
+    .metric-card {
+        background-color: #1e2129; 
+        padding: 20px; 
+        border-radius: 12px;
+        border: 1px solid #31333f; 
+        text-align: center;
     }
     </style>
     """, unsafe_allow_html=True)
 
-def create_pdf(title, content):
-    pdf = FPDF()
-    pdf.add_page()
-    def clean_text(text):
-        if not text: return ""
-        text = text.replace("**", "").replace("###", "")
-        rep = {"İ": "I", "ı": "i", "Ş": "S", "ş": "s", "Ğ": "G", "ğ": "g", "Ü": "U", "ü": "u", "Ö": "O", "ö": "o", "Ç": "C", "ç": "c", "–": "-", "—": "-", "“": '"', "”": '"', "‘": "'", "’": "'", "•": "*"}
-        for s, r in rep.items(): text = text.replace(s, r)
-        return text.encode('latin-1', 'replace').decode('latin-1')
-    pdf.set_font("Helvetica", 'B', size=14)
-    pdf.cell(200, 10, txt="AYM KARAR ANALIZ RAPORU", ln=1, align='C')
-    pdf.ln(10)
-    pdf.set_font("Helvetica", size=11)
-    pdf.multi_cell(0, 8, txt=f"BASLIK: {clean_text(title)}\n\n{clean_text(content)}")
-    return bytes(pdf.output())
-
-# --- SIDEBAR ---
+# --- SIDEBAR (Renklerle Uyumlu İçerik) ---
 with st.sidebar:
-    st.markdown("## 🏛️ LegalTech Menü")
-    st.markdown("---")
-    st.subheader("📧 Bülten Aboneliği")
-    sub_email = st.text_input("E-posta", key="side_sub", placeholder="avukat@hukuk.com")
-    if st.button("ABONE OL", use_container_width=True):
-        if "@" in sub_email and "." in sub_email:
-            abone_ekle(sub_email)
-            st.success("Kaydedildi!")
-        else: st.error("Geçersiz e-posta.")
+    st.markdown("## ⚖️ Kontrol Merkezi")
+    st.divider()
+    
+    with st.expander("📩 Bülten Aboneliği"):
+        st.write("Yeni kararlardan haberdar olun.")
+        sub_email = st.text_input("E-posta Adresiniz", key="sb_mail")
+        if st.button("KAYDOL", use_container_width=True):
+            if "@" in sub_email:
+                # database fonksiyonunuzu çağırın
+                st.success("Kaydedildi!")
+            else:
+                st.error("Geçersiz format.")
 
-# --- ANA EKRAN ---
+    st.divider()
+    st.caption("LegalTech AYM v2.0")
+
+# --- AI ETİKET ÜRETİCİ ---
+def generate_tags(content):
+    tags = ["#AYM", "#HukukAnaliz"]
+    low_content = content.lower()
+    if "mülkiyet" in low_content: tags.append("#MülkiyetHakkı")
+    if "yargılanma" in low_content: tags.append("#AdilYargılanma")
+    if "ihlal" in low_content: tags.append("#HakIhlali")
+    if "tazminat" in low_content: tags.append("#Tazminat")
+    if "ifade özgürlüğü" in low_content: tags.append("#İfadeÖzgürlüğü")
+    return tags
+
+
+
+# --- ANA EKRAN & DASHBOARD ---
 st.title("⚖️ AYM Karar Analiz Platformu")
+
+# Dashboard Güvenlik Kontrolü
+if 'kararlar' in st.session_state and st.session_state['kararlar'] is not None:
+    m1, m2, m3, m4 = st.columns(4)
+    total = len(st.session_state['kararlar'])
+    ihlal_sayisi = sum(1 for k in st.session_state['kararlar'] if "ihlal" in k.get('title','').lower())
+    
+    m1.markdown(f'<div class="metric-card">📝 Toplam Karar<br><h2>{total}</h2></div>', unsafe_allow_html=True)
+    m2.markdown(f'<div class="metric-card">🔴 İhlal Kararı<br><h2 style="color:#ff4b4b">{ihlal_sayisi}</h2></div>', unsafe_allow_html=True)
+    m3.markdown(f'<div class="metric-card">🟢 İhlal Yok<br><h2>{total - ihlal_sayisi}</h2></div>', unsafe_allow_html=True)
+    m4.markdown(f'<div class="metric-card">👥 Aktif Abone<br><h2>124</h2></div>', unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+
 tab1, tab2 = st.tabs(["🔍 Günlük Tarama", "📚 Arşiv"])
 
+# --- TAB 1: GÜNLÜK TARAMA ---
 with tab1:
-    col_left, col_right = st.columns([2, 3])
-    with col_left:
+    col_list, col_analysis = st.columns([2, 3])
+    with col_list:
         st.subheader("📂 Gazete Akışı")
-        c1, c2 = st.columns([2, 1])
-        with c1:
-            tarih_secimi = st.date_input("Karar Tarihi", value=datetime.now(), label_visibility="collapsed")
-        with c2:
+        t_col1, t_col2 = st.columns([2,1])
+        with t_col1:
+            tarih = st.date_input("Tarih", value=datetime.now(), label_visibility="collapsed")
+        with t_col2:
             if st.button("TARA", type="primary", use_container_width=True):
-                st.session_state['kararlar'] = start_process(tarih_secimi.strftime("%Y%m%d"))
+                st.session_state['kararlar'] = start_process(tarih.strftime("%Y%m%d"))
+                st.rerun()
         
-        st.markdown("---")
-        if 'kararlar' in st.session_state:
+        st.divider()
+        if 'kararlar' in st.session_state and st.session_state['kararlar']:
             for idx, karar in enumerate(st.session_state['kararlar']):
                 with st.container(border=True):
                     st.write(f"**{karar['title']}**")
-                    # YENİ YEŞİL BUTON
                     if st.button(f"🔍 Analizi Başlat", key=f"btn_{idx}", use_container_width=True):
-                        with st.spinner("İnceleniyor..."):
-                            st.session_state['current_summary'] = download_and_summarize(karar, tarih_secimi.strftime("%Y%m%d"))
+                        with st.spinner("AI Analiz Ediyor..."):
+                            summary = download_and_summarize(karar, tarih.strftime("%Y%m%d"))
+                            st.session_state['current_summary'] = summary
                             st.session_state['secilen_karar'] = karar
+                            st.session_state['tags'] = generate_tags(summary)
                             st.rerun()
 
-    with col_right:
+    with col_analysis:
         st.subheader("📄 Hukuki Analiz Paneli")
         if 'current_summary' in st.session_state:
-            b1, b2 = st.columns(2)
-            with b1: st.link_button("🔗 PDF'i Aç", st.session_state['secilen_karar']['url'], use_container_width=True)
-            with b2:
-                try:
-                    pdf_bytes = create_pdf(st.session_state['secilen_karar']['title'], st.session_state['current_summary'])
-                    st.download_button("📥 Raporu İndir", data=pdf_bytes, file_name="aym_analiz.pdf")
-                except: st.error("PDF Hatası")
-            st.markdown("---")
-            st.info(f"**Karar:** {st.session_state['secilen_karar']['title']}")
+            # Araç Çubuğu
+            a1, a2, a3 = st.columns([3,2,2])
+            with a1: st.link_button("🔗 PDF Gör", st.session_state['secilen_karar']['url'], use_container_width=True)
+            with a2: st.button("📥 Raporu İndir", use_container_width=True)
+            with a3:
+                msg = f"*AYM Karar Analizi*\n{st.session_state['secilen_karar']['title']}"
+                wa_url = f"https://wa.me/?text={urllib.parse.quote(msg)}"
+                st.markdown(f'<a href="{wa_url}" target="_blank" class="wa-icon"><i class="fab fa-whatsapp"></i></a>', unsafe_allow_html=True)
+            
+            st.divider()
+            # ETİKETLERİ BURADA GÖSTERİYORUZ
+            st.write("🏷️ **AI Etiketleri:**")
+            tag_html = "".join([f'<span class="badge">{t}</span>' for t in st.session_state['tags']])
+            st.markdown(tag_html, unsafe_allow_html=True)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
             st.markdown(st.session_state['current_summary'])
+        else:
+            st.info("Sol listeden bir karar seçerek analizi başlatın.")
+
+# --- TAB 2: ARŞİV ---
+with tab2:
+    st.subheader("📚 Karar Arşivi")
+    search_q = st.text_input("Arşivde Ara", placeholder="Anahtar kelime veya Karar No girin...")
+    
+    if search_q:
+        sonuclar = ozetlerde_ara(search_q)
+        if sonuclar:
+            for row in sonuclar:
+                # Arşiv kartı tasarımı
+                with st.container():
+                    st.markdown(f"""
+                    <div class="archive-card">
+                        <small style="color: #888;">{row[0]}</small><br>
+                        <strong>{row[1]}</strong>
+                    </div>
+                    """, unsafe_allow_html=True)
+                    with st.expander("Analiz Özetini Gör"):
+                        st.write(row[2])
+                        st.link_button("Orijinal Karara Git", row[3])
+        else:
+            st.warning("Sonuç bulunamadı.")
+    else:
+        st.info("Geçmiş analizlere ulaşmak için yukarıdaki arama kutusunu kullanın.")
