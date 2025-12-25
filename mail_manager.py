@@ -1,4 +1,5 @@
 import smtplib
+import time
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import os
@@ -40,15 +41,25 @@ def yeni_karar_duyurusu(karar_sayisi):
     """
 
     try:
+        # SMTP bağlantısını bir kez açıyoruz
         server = smtplib.SMTP_SSL('smtp.gmail.com', 465)
         server.login(gonderen, sifre)
+        
         for abone in aboneler:
             msg = MIMEMultipart()
-            msg['From'], msg['To'], msg['Subject'] = gonderen, abone, "📢 Yeni AYM Kararları Yayımlandı!"
+            msg['From'] = gonderen
+            msg['To'] = abone
+            msg['Subject'] = f"⚖️ {karar_sayisi} Yeni AYM Kararı Analizi Hazır"
+            
             msg.attach(MIMEText(html_icerik, 'html'))
             server.send_message(msg)
+            
+            # Sunucuyu yormamak için çok kısa bir bekleme
+            time.sleep(0.5) 
+            
         server.quit()
+        print(f"Başarıyla {len(aboneler)} aboneye mail gönderildi.")
         return True
     except Exception as e:
-        print(f"Mail Hatası: {e}")
+        print(f"Kritik Mail Hatası: {e}")
         return False
