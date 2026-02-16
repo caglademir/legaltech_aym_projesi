@@ -4,10 +4,8 @@ import datetime
 def db_kur():
     conn = sqlite3.connect("aym_arsiv.db")
     cursor = conn.cursor()
-    # Kararlar tablosunda url UNIQUE olmalı ki mükerrer kayıt olmasın
     cursor.execute('''CREATE TABLE IF NOT EXISTS kararlar 
                      (tarih TEXT, baslik TEXT, ozet TEXT, url TEXT UNIQUE)''')
-    
     cursor.execute('''CREATE TABLE IF NOT EXISTS aboneler 
                      (id INTEGER PRIMARY KEY AUTOINCREMENT, 
                       eposta TEXT UNIQUE, 

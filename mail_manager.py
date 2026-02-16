@@ -8,11 +8,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def yeni_karar_duyurusu(karar_sayisi):
+def yeni_karar_duyurusu(yeni_kararlar):
+    """
+    yeni_kararlar: [{'title': '...', 'url': '...'}, ...] formatında liste
+    """
+    karar_sayisi = len(yeni_kararlar)
     gonderen = os.getenv("EMAIL_ADRESI")
     sifre = os.getenv("EMAIL_SIFRESI")
     site_linki = "https://legaltech-aym.streamlit.app" # Canlı site linkin
     
+    # Karar listesi HTML'ini oluştur
+    karar_listesi_html = ""
+    for k in yeni_kararlar:
+        karar_listesi_html += f"<li style='margin-bottom: 8px;'><a href='{site_linki}' style='color: #1d3557; text-decoration: none;'>{k['title']}</a></li>"
+
     # Veritabanından aboneleri çek
     conn = sqlite3.connect("aym_arsiv.db")
     cursor = conn.cursor()
@@ -28,7 +37,12 @@ def yeni_karar_duyurusu(karar_sayisi):
         <body style="font-family: sans-serif; border-top: 4px solid #1d3557; padding: 20px;">
             <h2 style="color: #1d3557;">⚖️ Güncel AYM Karar Bildirimi</h2>
             <p>Sayın Meslektaşım,</p>
-            <p>Bugün yayımlanan Resmi Gazete'de <strong>{karar_sayisi} yeni Anayasa Mahkemesi kararı</strong> tespit edildi.</p>
+            <p>Bugün yayımlanan Resmi Gazete'de <strong>{karar_sayisi} yeni Anayasa Mahkemesi kararı</strong> tespit edildi:</p>
+            
+            <ul style="background-color: #f8f9fa; padding: 15px 30px; border-radius: 8px; border-left: 4px solid #e63946;">
+                {karar_listesi_html}
+            </ul>
+
             <p>Yapay zeka tarafından hazırlanan detaylı analiz raporlarını ve mali denetim sonuçlarını incelemek için aşağıdaki butonu kullanabilirsiniz:</p>
             <div style="margin: 30px 0; text-align: center;">
                 <a href="{site_linki}" style="background-color: #e63946; color: white; padding: 15px 25px; text-decoration: none; border-radius: 5px; font-weight: bold;">
